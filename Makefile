@@ -2,26 +2,27 @@ up:
 	docker compose up -d
 build:
 	docker compose build --no-cache --force-rm
-laravel-install:
-	docker compose exec app composer create-project --prefer-dist laravel/laravel .
+project-install:
+	git clone https://github.com/sample.git src
 create-project:
 	mkdir -p src
 	@make build
 	@make up
-	@make laravel-install
+	@make project-install
+	docker compose exec app composer install
+	docker compose exec app cp .env.example .env
 	docker compose exec app php artisan key:generate
 	docker compose exec app php artisan storage:link
 	docker compose exec app chmod -R 777 storage bootstrap/cache
 	@make fresh
 install-recommend-packages:
-	docker compose exec app composer require doctrine/dbal
-	docker compose exec app composer require --dev ucan-lab/laravel-dacapo
-	docker compose exec app composer require --dev barryvdh/laravel-ide-helper
-	docker compose exec app composer require --dev beyondcode/laravel-dump-server
-	docker compose exec app composer require --dev barryvdh/laravel-debugbar
-	docker compose exec app composer require --dev roave/security-advisories:dev-master
-	docker compose exec app php artisan vendor:publish --provider="BeyondCode\DumpServer\DumpServerServiceProvider"
-	docker compose exec app php artisan vendor:publish --provider="Barryvdh\Debugbar\ServiceProvider"
+	docker-compose exec app composer require --dev nunomaduro/larastan
+	docker-compose exec app composer require --dev bamarni/composer-bin-plugin
+	docker-compose exec app composer require --dev friendsofphp/php-cs-fixer
+remove-recommend-packages:
+	docker-compose exec app composer remove --dev nunomaduro/larastan
+	docker-compose exec app composer remove --dev bamarni/composer-bin-plugin
+	docker-compose exec app composer remove --dev friendsofphp/php-cs-fixer
 init:
 	docker compose up -d --build
 	docker compose exec app composer install
@@ -100,8 +101,9 @@ sql:
 	docker compose exec db bash -c 'mysql -u $$MYSQL_USER -p$$MYSQL_PASSWORD $$MYSQL_DATABASE'
 redis:
 	docker compose exec redis redis-cli
-ide-helper:
-	docker compose exec app php artisan clear-compiled
-	docker compose exec app php artisan ide-helper:generate
-	docker compose exec app php artisan ide-helper:meta
-	docker compose exec app php artisan ide-helper:models --nowrite
+analyze:
+	docker-compose exec app ./vendor/bin/phpstan analyze --memory-limit=2G
+cs-dry-run:
+	docker-compose exec app ./vendor/bin/php-cs-fixer fix -v --diff --dry-run
+cs-fix:
+	docker-compose exec app ./vendor/bin/php-cs-fixer fix -v --diff
